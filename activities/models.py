@@ -58,11 +58,12 @@ class Activity(models.Model):
         verbose_name_plural = "Activities"
         ordering = ['-created_at']
         constraints = [
-            models.UniqueConstraint(
-                fields=['user', 'name'],
-                name='unique_activity_name_per_user'
-            )
-        ]
+        models.UniqueConstraint(
+            fields=['user', 'name'],
+            name='unique_activity_name_per_user',
+            condition=models.Q(name__iexact=models.F('name'))  # Case-insensitive DB-level
+        )
+    ]
 
     def clean(self):
         """Case-insensitive name validation"""

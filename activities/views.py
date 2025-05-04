@@ -8,6 +8,9 @@ from rest_framework import status
 from .serializers import ActivitySerializer
 from rest_framework.permissions import IsAuthenticated
 
+
+
+
 # Template Views (for HTML rendering)
 class ActivityListView(LoginRequiredMixin, ListView):
     model = Activity
