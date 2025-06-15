@@ -24,9 +24,17 @@ from rest_framework_simplejwt.views import (
 
 
 urlpatterns = [
+    # Admin
     path('admin/', admin.site.urls),
+
+    # Authentication
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('activities/', include('activities.urls')),
-    path('', views.login_page, name='login_page'),
+
+    # Apps
+    path('api/activities/', include('activities.urls')),
+    path('api/stamps/', include('timeSections.urls')),
+
+    # General views
+    path('', views.login_page, name='login_page')
 ]

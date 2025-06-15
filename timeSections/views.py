@@ -1,59 +1,59 @@
-# activities/views.py
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from .models import Activity
-from .serializers import ActivitySerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
+from .models import Stamp
+from .serializers import StampSerializer
+from activities.models import Activity
 
-# API Views only
-class ActivityListAPIView(APIView):
+class StampListCreateAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     
     def get(self, request):
-        activities = Activity.objects.filter(user=request.user)
-        serializer = ActivitySerializer(activities, many=True)
+        stamps = Stamp.objects.filter(user=request.user)
+        serializer = StampSerializer(stamps, many=True)
         return Response(serializer.data)
     
     def post(self, request):
-        serializer = ActivitySerializer(data=request.data)
+        serializer = StampSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class ActivityDetailAPIView(APIView):
+class StampDetailAPIView(APIView):
     authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
     
     def get_object(self, pk):
         try:
-            return Activity.objects.get(pk=pk, user=self.request.user)
-        except Activity.DoesNotExist:
+            return Stamp.objects.get(pk=pk, user=self.request.user)
+        except Stamp.DoesNotExist:
             return None
     
     def get(self, request, pk):
-        activity = self.get_object(pk)
-        if activity:
-            serializer = ActivitySerializer(activity)
+        stamp = self.get_object(pk)
+        if stamp:
+            serializer = StampSerializer(stamp)
             return Response(serializer.data)
         return Response(status=status.HTTP_404_NOT_FOUND)
     
     def put(self, request, pk):
-        activity = self.get_object(pk)
-        if activity:
-            serializer = ActivitySerializer(activity, data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        return Response(status=status.HTTP_404_NOT_FOUND)
+        stamp = self.get_object(pk)
+        if not stamp:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        
+        serializer = StampSerializer(stamp, data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     def delete(self, request, pk):
-        activity = self.get_object(pk)
-        if activity:
-            activity.delete()
+        stamp = self.get_object(pk)
+        if stamp:
+            stamp.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(status=status.HTTP_404_NOT_FOUND)
