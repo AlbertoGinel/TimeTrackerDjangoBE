@@ -5,7 +5,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from .models import Stamp
 from .serializers import StampSerializer
-from activities.models import Activity
+from .serializers import IntervalSerializer
+#from activities.models import Activity
+from .utils import get_user_intervals
 
 class StampListCreateAPIView(APIView):
     authentication_classes = [JWTAuthentication]
@@ -50,10 +52,22 @@ class StampDetailAPIView(APIView):
             serializer.save()
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     def delete(self, request, pk):
         stamp = self.get_object(pk)
         if stamp:
             stamp.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
         return Response(status=status.HTTP_404_NOT_FOUND)
+
+class UserIntervalsAPIView(APIView):
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        # Generate intervals from stamps
+        intervals = get_user_intervals(request.user)
+        intervals = sorted(intervals, key=lambda x: x.fromDate, reverse=True)
+        # Serialize virtual Interval objects
+        serializer = IntervalSerializer(intervals, many=True)
+        return Response(serializer.data)
