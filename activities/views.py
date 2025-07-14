@@ -2,58 +2,49 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.exceptions import PermissionDenied, NotFound
+from django.contrib.auth import get_user_model
+from django.shortcuts import get_object_or_404
 from .models import Activity
 from .serializers import ActivitySerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
-# API Views only
+User = get_user_model()
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .services import ActivityService
+
 class ActivityListAPIView(APIView):
-    authentication_classes = [JWTAuthentication]
+
     permission_classes = [IsAuthenticated]
-    
-    def get(self, request):
-        activities = Activity.objects.filter(user=request.user)
+
+class ActivityListAPIView(APIView):
+    def get(self, request, pk=None):  # pk is now optional
+        # If pk is provided (e.g., /api/activities/3/), use it as user_id
+        target_user_id = pk if pk is not None else request.user.id
+        activities = ActivityService.get_user_activities(target_user_id, request.user)
         serializer = ActivitySerializer(activities, many=True)
         return Response(serializer.data)
-    
+
     def post(self, request):
-        serializer = ActivitySerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save(user=request.user)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        data = ActivityService.create_activity(request.data, request.user)
+        return Response(data, status=status.HTTP_201_CREATED)
 
 class ActivityDetailAPIView(APIView):
-    authentication_classes = [JWTAuthentication]
     permission_classes = [IsAuthenticated]
-    
-    def get_object(self, pk):
-        try:
-            return Activity.objects.get(pk=pk, user=self.request.user)
-        except Activity.DoesNotExist:
-            return None
-    
+
     def get(self, request, pk):
-        activity = self.get_object(pk)
-        if activity:
-            serializer = ActivitySerializer(activity)
-            return Response(serializer.data)
-        return Response(status=status.HTTP_404_NOT_FOUND)
-    
+        activity = ActivityService.get_activity_detail(pk, request.user)
+        serializer = ActivitySerializer(activity)
+        return Response(serializer.data)
+
     def put(self, request, pk):
-        activity = self.get_object(pk)
-        if activity:
-            serializer = ActivitySerializer(activity, data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        return Response(status=status.HTTP_404_NOT_FOUND)
-    
+        data = ActivityService.update_activity(pk, request.data, request.user)
+        return Response(data)
+
     def delete(self, request, pk):
-        activity = self.get_object(pk)
-        if activity:
-            activity.delete()
-            return Response(status=status.HTTP_204_NO_CONTENT)
-        return Response(status=status.HTTP_404_NOT_FOUND)
+        ActivityService.delete_activity(pk, request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)

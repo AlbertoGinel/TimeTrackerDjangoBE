@@ -1,48 +1,38 @@
+from django.forms import ValidationError
 from rest_framework import serializers
-from .models import Stamp
+from .models import Interval, Stamp
 from activities.models import Activity
 from activities.serializers import ActivitySerializer
 
 class StampSerializer(serializers.ModelSerializer):
-    activity = ActivitySerializer(read_only=True)
-    activity_id = serializers.PrimaryKeyRelatedField(
+
+    activity = serializers.PrimaryKeyRelatedField(
         queryset=Activity.objects.all(),
-        source='activity',
-        write_only=True,
-        required=False,
-        allow_null=True
+        pk_field=serializers.UUIDField(),
+        write_only=True
     )
+
+    # For reads: full nested representation
+    activity_data = ActivitySerializer(source='activity', read_only=True)
 
     class Meta:
         model = Stamp
-        fields = ['id', 'type', 'timestamp', 'activity', 'activity_id', 'user']
-        read_only_fields = ['id', 'timestamp', 'user']
-        extra_kwargs = {
-            'id': {
-                'required': False  # Ensure DRF doesn't require ID in input
-            }
-        }
-
-    def validate_activity(self, value):
-        if value is not None and value.user != self.context['request'].user:
-            raise serializers.ValidationError(
-                "Activity does not belong to the current user."
-            )
-        return value
+        fields = ['id', 'type', 'timestamp', 'user', 'activity', 'activity_data']
 
     def validate(self, data):
-        if data.get('type') == 'start' and data.get('activity') is None:
+        """Pure data validation without business logic"""
+        if data.get('type') == 'start' and not data.get('activity'):
             raise serializers.ValidationError(
-                {"activity_id": "Activity is required for start stamps."}
+                {"activity": "Required for start stamps"}
             )
         return data
 
     def create(self, validated_data):
-        # Set the user automatically from request
-        validated_data['user'] = self.context['request'].user
+        """Let views/services handle permissions, just save data"""
         return super().create(validated_data)
 
-
+    def update(self, instance, validated_data):
+        return super().update(instance, validated_data)
 
 class IntervalSerializer(serializers.Serializer):
     opening_stamp = serializers.PrimaryKeyRelatedField(
@@ -54,45 +44,36 @@ class IntervalSerializer(serializers.Serializer):
         required=False,
         allow_null=True
     )
-    user = serializers.PrimaryKeyRelatedField(read_only=True)
-    activity = ActivitySerializer(read_only=True)
-    fromDate = serializers.DateTimeField(source='opening_stamp.timestamp', read_only=True)
-    toDate = serializers.DateTimeField(source='closing_stamp.timestamp', read_only=True, allow_null=True)
-    duration = serializers.SerializerMethodField()
-    is_open = serializers.SerializerMethodField()
 
-    def get_duration(self, obj):
-        return obj.duration
-
-    def get_is_open(self, obj):
-        return obj.closing_stamp is None
+    # Read-only fields
+    start = serializers.DateTimeField(source='fromDate', read_only=True)
+    end = serializers.DateTimeField(source='toDate', read_only=True, allow_null=True)
+    duration = serializers.DurationField(read_only=True)
+    is_open = serializers.BooleanField(read_only=True)
+    activity = ActivitySerializer(source='opening_stamp.activity', read_only=True)
+    user = serializers.PrimaryKeyRelatedField(
+        source='opening_stamp.user', 
+        read_only=True
+    )
 
     def validate(self, data):
-        """
-        Validate that:
-        1. Opening stamp is a START type
-        2. Both stamps belong to the same user
-        """
-        opening_stamp = data.get('opening_stamp')
-        closing_stamp = data.get('closing_stamp')
-
+        opening_stamp = data['opening_stamp']
+        
         if opening_stamp.type != Stamp.StampType.START:
-            raise serializers.ValidationError({
-                'opening_stamp': "Opening stamp must be of type START"
+            raise ValidationError({
+                'opening_stamp': "Must be a START type stamp"
             })
-
-        if closing_stamp and opening_stamp.user != closing_stamp.user:
-            raise serializers.ValidationError({
-                'closing_stamp': "Stamps must belong to the same user"
+            
+        if (closing_stamp := data.get('closing_stamp')) and \
+           (opening_stamp.user != closing_stamp.user):
+            raise ValidationError({
+                'closing_stamp': "Must belong to same user as opening stamp"
             })
 
         return data
 
     def create(self, validated_data):
-        """
-        Normally you wouldn't create intervals directly (they're derived from stamps),
-        but if needed, this would create an interval record.
-        """
+        """For manual interval creation (if needed)"""
         return Interval(
             opening_stamp=validated_data['opening_stamp'],
             closing_stamp=validated_data.get('closing_stamp')

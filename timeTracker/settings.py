@@ -38,6 +38,8 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 INSTALLED_APPS = [
+    'django_filters',
+    'days',
     'users',
     'corsheaders',
     'activities',

@@ -5,7 +5,7 @@ from .views import ActivityListAPIView, ActivityDetailAPIView
 app_name = 'activities'
 
 urlpatterns = [
-    # API Endpoints only
     path('', ActivityListAPIView.as_view(), name='activity-list'),
-    path('<uuid:pk>/', ActivityDetailAPIView.as_view(), name='activity-detail'),
+    path('<int:pk>/', ActivityListAPIView.as_view(), name='activity-list-filtered'),  # Same view handles both
+    path('<int:pk>/detail/', ActivityDetailAPIView.as_view(), name='activity-detail'),  # Keep detail view
 ]

@@ -41,6 +41,7 @@ class Stamp(models.Model):
         indexes = [
             models.Index(fields=['user', 'activity']),
             models.Index(fields=['timestamp']),
+            models.Index(fields=['user', 'timestamp']),
         ]
 
     def __str__(self):
